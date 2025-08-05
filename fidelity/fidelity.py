@@ -545,7 +545,7 @@ class FidelityAutomation:
         # Stop the instance of playwright
         self.playwright.stop()
 
-    def login(self, username: str, password: str, totp_secret: str = None, save_device: bool = True) -> bool:
+    def login(self, username: str, password: str, totp_secret: str = None, save_device: bool = False) -> tuple[bool, bool]:
         """
         Logs into fidelity using the supplied username and password.
 
