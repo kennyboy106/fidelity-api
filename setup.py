@@ -5,7 +5,7 @@ with open("README.md", "r") as f:
 
 setup(
     name="fidelity-api",
-    version="0.0.14",
+    version="0.0.15",
     author="Kenneth Tang",
     description="An unofficial API for Fidelity",
     long_description=long_description,

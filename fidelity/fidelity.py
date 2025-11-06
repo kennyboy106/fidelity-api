@@ -671,6 +671,7 @@ class FidelityAutomation:
 
         except PlaywrightTimeoutError:
             print("Timeout waiting for login page to load or navigate.")
+            traceback.print_exc()
             return (False, False)
         except Exception as e:
             print(f"An error occurred: {str(e)}")
