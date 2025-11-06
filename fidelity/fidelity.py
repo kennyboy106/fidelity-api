@@ -545,7 +545,7 @@ class FidelityAutomation:
         # Stop the instance of playwright
         self.playwright.stop()
 
-    def login(self, username: str, password: str, totp_secret: str = None, save_device: bool = True) -> bool:
+    def login(self, username: str, password: str, totp_secret: str = None, save_device: bool = False) -> tuple[bool, bool]:
         """
         Logs into fidelity using the supplied username and password.
 
@@ -671,6 +671,7 @@ class FidelityAutomation:
 
         except PlaywrightTimeoutError:
             print("Timeout waiting for login page to load or navigate.")
+            traceback.print_exc()
             return (False, False)
         except Exception as e:
             print(f"An error occurred: {str(e)}")
@@ -819,11 +820,11 @@ class FidelityAutomation:
             self.page.get_by_role("option").filter(has_text=account.upper()).click()
 
             # Enter the symbol
-            self.page.get_by_label("Symbol").click()
+            self.page.get_by_label("Symbol", exact=True).click()
             # Fill in the ticker
-            self.page.get_by_label("Symbol").fill(stock)
+            self.page.get_by_label("Symbol", exact=True).fill(stock)
             # Force the search to use exactly what was entered
-            self.page.get_by_label("Symbol").press("Enter")
+            self.page.get_by_label("Symbol", exact=True).press("Enter")
 
             # Wait for quote panel to show up
             self.page.locator("#quote-panel").wait_for(timeout=5000)

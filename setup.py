@@ -5,7 +5,7 @@ with open("README.md", "r") as f:
 
 setup(
     name="fidelity-api",
-    version="0.0.14",
+    version="0.0.15",
     author="Kenneth Tang",
     description="An unofficial API for Fidelity",
     long_description=long_description,
@@ -13,6 +13,6 @@ setup(
     license="GPL",
     url="https://github.com/kennyboy106/fidelity-api",
     keywords=["FIDELITY", "API"],
-    install_requires=["playwright", "playwright-stealth", "pyotp"],
+    install_requires=["playwright", "playwright-sm", "pyotp"],
     packages=["fidelity"],
 )
