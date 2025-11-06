@@ -16,3 +16,4 @@ setup(
     install_requires=["playwright", "playwright-sm", "pyotp"],
     packages=["fidelity"],
 )
+ 
