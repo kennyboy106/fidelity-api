@@ -849,6 +849,9 @@ class FidelityAutomation:
 
             # Press the buy or sell button. Title capitalizes the first letter so 'buy' -> 'Buy'
             self.page.query_selector(".eq-ticket-action-label").click()
+            
+            self.page.wait_for_timeout(1000)
+            
             self.page.get_by_role("option", name=action.lower().title(), exact=True).wait_for()
             self.page.get_by_role("option", name=action.lower().title(), exact=True).click()
 
@@ -1500,4 +1503,3 @@ def validate_stocks(stocks: list):
                 print("value: float")
                 return False
     return True
-
