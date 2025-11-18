@@ -581,16 +581,28 @@ class FidelityAutomation:
         try:
             # Go to the login page
             self.page.goto(
-                url="https://digital.fidelity.com/prgw/digital/login/full-page",
+                url="https://digital.fidelity.com/prgw/digital/login/full-page?AuthRedUrl=https://digital.fidelity.com/ftgw/digital/portfolio/summary",
+                timeout=60000,
+            )
+            
+            self.page.wait_for_timeout(1000)
+            
+            self.page.goto(
+                url="https://digital.fidelity.com/prgw/digital/login/full-page?AuthRedUrl=https://digital.fidelity.com/ftgw/digital/portfolio/summary",
                 timeout=60000,
             )
 
             # Login page
             self.page.get_by_label("Username", exact=True).click()
+            self.page.wait_for_timeout(500)
             self.page.get_by_label("Username", exact=True).fill(username)
+            self.page.wait_for_timeout(500)
             self.page.get_by_label("Password", exact=True).click()
+            self.page.wait_for_timeout(500)
             self.page.get_by_label("Password", exact=True).fill(password)
+            self.page.wait_for_timeout(500)
             self.page.get_by_role("button", name="Log in").click()
+            self.page.wait_for_timeout(500)
 
             # Wait for loading spinner to go away
             self.wait_for_loading_sign()
@@ -818,6 +830,8 @@ class FidelityAutomation:
                 self.page.query_selector("#dest-acct-dropdown").click()
             # Find the account to trade under
             self.page.get_by_role("option").filter(has_text=account.upper()).click()
+            
+            self.page.wait_for_timeout(3000)
 
             # Enter the symbol
             self.page.get_by_label("Symbol", exact=True).click()
@@ -848,9 +862,35 @@ class FidelityAutomation:
                 precision = 2
 
             # Press the buy or sell button. Title capitalizes the first letter so 'buy' -> 'Buy'
-            self.page.query_selector(".eq-ticket-action-label").click()
-            self.page.get_by_role("option", name=action.lower().title(), exact=True).wait_for()
-            self.page.get_by_role("option", name=action.lower().title(), exact=True).click()
+            # Define the elements
+            action_dropdown = self.page.locator(".eq-ticket-action-label")
+            target_option = self.page.get_by_role("option", name=action.lower().title(), exact=True)
+
+            # Retry loop: If the "Buy" button detaches or isn't found, we re-click the menu.
+            for attempt in range(5):
+                try:
+                    # 1. Open the menu
+                    # We use force=True to click through any transparent loading masks
+                    if not target_option.is_visible():
+                        action_dropdown.click(force=True)
+                        # Small wait for animation
+                        self.page.wait_for_timeout(500)
+
+                    # 2. Try to click the option (Buy/Sell)
+                    # We reduce timeout to 3s so we can fail fast and retry opening the menu
+                    target_option.click(timeout=3000)
+                    
+                    # If we get here, it worked. Break the loop.
+                    break
+                
+                except (PlaywrightTimeoutError, Exception) as e:
+                    print(f"Attempt {attempt+1} failed to click '{action}': {e}")
+                    print("Re-opening menu and retrying...")
+                    # Wait a moment before trying again to let any DOM updates settle
+                    self.page.wait_for_timeout(1000)
+            else:
+                # This executes if the loop finishes without breaking (all 5 attempts failed)
+                return (False, f"Could not select '{action}' after 5 attempts. Menu stuck.")
 
             # Press the shares text box
             self.page.locator("#eqt-mts-stock-quatity div").filter(has_text="Quantity").click()
@@ -1500,4 +1540,3 @@ def validate_stocks(stocks: list):
                 print("value: float")
                 return False
     return True
-
