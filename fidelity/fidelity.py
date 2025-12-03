@@ -820,16 +820,24 @@ class FidelityAutomation:
 
             # Click on the drop down
             self.page.query_selector("#dest-acct-dropdown").click()
+            
+            # Define a more specific locator that targets the button specifically
+            account_option = self.page.get_by_role("option").filter(has_text=account.upper()).locator("button")
+            
+            # If the above doesn't work because the button IS the option (not inside it), use this instead:
+            # account_option = self.page.locator("button[role='option']").filter(has_text=account.upper())
+            
+            # Based on your error log, the button ITSELF has role="option", so use this one:
+            account_locator = self.page.locator("button[role='option']").filter(has_text=account.upper())
 
-            if (not self.page.get_by_role("option").filter(has_text=account.upper()).is_visible()):
+            if (not account_locator.is_visible()):
                 # Reload the page and hit the drop down again
-                # This is to prevent a rare case where the drop down is empty
                 print("Reloading...")
                 self.page.reload()
-                # Click on the drop down
                 self.page.query_selector("#dest-acct-dropdown").click()
-            # Find the account to trade under
-            self.page.get_by_role("option").filter(has_text=account.upper()).click()
+                
+            # Click the specific account button
+            account_locator.click()
             
             self.page.wait_for_timeout(3000)
 
