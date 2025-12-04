@@ -581,16 +581,28 @@ class FidelityAutomation:
         try:
             # Go to the login page
             self.page.goto(
-                url="https://digital.fidelity.com/prgw/digital/login/full-page",
+                url="https://digital.fidelity.com/prgw/digital/login/full-page?AuthRedUrl=https://digital.fidelity.com/ftgw/digital/portfolio/summary",
+                timeout=60000,
+            )
+            
+            self.page.wait_for_timeout(1000)
+            
+            self.page.goto(
+                url="https://digital.fidelity.com/prgw/digital/login/full-page?AuthRedUrl=https://digital.fidelity.com/ftgw/digital/portfolio/summary",
                 timeout=60000,
             )
 
             # Login page
             self.page.get_by_label("Username", exact=True).click()
+            self.page.wait_for_timeout(500)
             self.page.get_by_label("Username", exact=True).fill(username)
+            self.page.wait_for_timeout(500)
             self.page.get_by_label("Password", exact=True).click()
+            self.page.wait_for_timeout(500)
             self.page.get_by_label("Password", exact=True).fill(password)
+            self.page.wait_for_timeout(500)
             self.page.get_by_role("button", name="Log in").click()
+            self.page.wait_for_timeout(500)
 
             # Wait for loading spinner to go away
             self.wait_for_loading_sign()
@@ -808,16 +820,21 @@ class FidelityAutomation:
 
             # Click on the drop down
             self.page.query_selector("#dest-acct-dropdown").click()
+            
+            # Define a more specific locator that targets the button specifically
+            # Based on your error log, the button ITSELF has role="option", so use this one:
+            account_locator = self.page.locator("button[role='option']").filter(has_text=account.upper())
 
-            if (not self.page.get_by_role("option").filter(has_text=account.upper()).is_visible()):
+            if (not account_locator.is_visible()):
                 # Reload the page and hit the drop down again
-                # This is to prevent a rare case where the drop down is empty
                 print("Reloading...")
                 self.page.reload()
-                # Click on the drop down
                 self.page.query_selector("#dest-acct-dropdown").click()
-            # Find the account to trade under
-            self.page.get_by_role("option").filter(has_text=account.upper()).click()
+                
+            # Click the specific account button
+            account_locator.click()
+            
+            self.page.wait_for_timeout(3000)
 
             # Enter the symbol
             self.page.get_by_label("Symbol", exact=True).click()
@@ -828,6 +845,8 @@ class FidelityAutomation:
 
             # Wait for quote panel to show up
             self.page.locator("#quote-panel").wait_for(timeout=5000)
+            
+            # Get initial price (this might be closing price)
             last_price = self.page.query_selector("#eq-ticket__last-price > span.last-price").text_content()
             last_price = last_price.replace("$", "")
 
@@ -837,20 +856,72 @@ class FidelityAutomation:
                 # Wait for it to take effect
                 self.page.get_by_role("button", name="Calculate shares").wait_for(timeout=5000)
 
-            # When enabling extended hour trading
+            # --- EXTENDED HOURS LOGIC ---
             extended = False
             precision = 3
-            # Enable extended hours trading if available
-            if self.page.get_by_text("Extended hours trading").is_visible():
+
+            # Check for the specific Extended Hours button provided
+            # We locate the wrapper because it holds the state class (pvd-switch--on)
+            extended_wrapper = self.page.locator(".eq-ticket__extendedhour-toggle")
+            extended_btn = self.page.locator("#eq-ticket_extendedhour")
+            
+            if extended_btn.is_visible():
+                # Check if it is already toggled on using the wrapper class
+                class_attr = extended_wrapper.first.get_attribute("class")
+                if class_attr and "pvd-switch--on" in class_attr:
+                    print("Extended Hours Trading is already active.")
+                else:
+                    print("Enabling Extended Hours Trading...")
+                    extended_btn.click()
+                    # Wait for the toggle animation and price update
+                    self.page.wait_for_timeout(1000)
+                
+                extended = True
+                precision = 2
+
+                # Refresh the price! The UI likely switched from Closing Price to Ext Hrs Price
+                if self.page.locator("#eq-ticket__last-price > span.last-price").is_visible():
+                    new_price = self.page.query_selector("#eq-ticket__last-price > span.last-price").text_content()
+                    last_price = new_price.replace("$", "").replace(",", "")
+
+            # Fallback to old text-based check if the button ID changes or isn't present
+            elif self.page.get_by_text("Extended hours trading").is_visible():
                 if self.page.get_by_text("Extended hours trading: OffUntil 8:00 PM ET").is_visible():
                     self.page.get_by_text("Extended hours trading: OffUntil 8:00 PM ET").check()
                 extended = True
                 precision = 2
+            # --- END EXTENDED HOURS LOGIC ---
 
             # Press the buy or sell button. Title capitalizes the first letter so 'buy' -> 'Buy'
-            self.page.query_selector(".eq-ticket-action-label").click()
-            self.page.get_by_role("option", name=action.lower().title(), exact=True).wait_for()
-            self.page.get_by_role("option", name=action.lower().title(), exact=True).click()
+            # Define the elements
+            action_dropdown = self.page.locator(".eq-ticket-action-label")
+            target_option = self.page.get_by_role("option", name=action.lower().title(), exact=True)
+
+            # Retry loop: If the "Buy" button detaches or isn't found, we re-click the menu.
+            for attempt in range(5):
+                try:
+                    # 1. Open the menu
+                    # We use force=True to click through any transparent loading masks
+                    if not target_option.is_visible():
+                        action_dropdown.click(force=True)
+                        # Small wait for animation
+                        self.page.wait_for_timeout(500)
+
+                    # 2. Try to click the option (Buy/Sell)
+                    # We reduce timeout to 3s so we can fail fast and retry opening the menu
+                    target_option.click(timeout=3000)
+                    
+                    # If we get here, it worked. Break the loop.
+                    break
+                
+                except (PlaywrightTimeoutError, Exception) as e:
+                    print(f"Attempt {attempt+1} failed to click '{action}': {e}")
+                    print("Re-opening menu and retrying...")
+                    # Wait a moment before trying again to let any DOM updates settle
+                    self.page.wait_for_timeout(1000)
+            else:
+                # This executes if the loop finishes without breaking (all 5 attempts failed)
+                return (False, f"Could not select '{action}' after 5 attempts. Menu stuck.")
 
             # Press the shares text box
             self.page.locator("#eqt-mts-stock-quatity div").filter(has_text="Quantity").click()
@@ -1500,4 +1571,3 @@ def validate_stocks(stocks: list):
                 print("value: float")
                 return False
     return True
-
