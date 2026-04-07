@@ -580,11 +580,11 @@ class FidelityAutomation:
         """
         try:
             # Go to the login page
-            self.page.goto(url="https://digital.fidelity.com/prgw/digital/login/full-page")
+            self.page.goto(url="https://digital.fidelity.com/prgw/digital/signin/retail")
 
             self.page.wait_for_timeout(5000)
 
-            self.page.goto(url="https://digital.fidelity.com/prgw/digital/login/full-page")
+            self.page.goto(url="https://digital.fidelity.com/prgw/digital/signin/retail")
             
             # Login page
             self.page.get_by_label("Username", exact=True).click()
@@ -607,7 +607,7 @@ class FidelityAutomation:
             totp_secret = None if totp_secret == "NA" else totp_secret
 
             # If we hit the 2fA page after trying to login
-            if "login" in self.page.url:
+            if "signin" in self.page.url:
                 self.wait_for_loading_sign()
                 widget = self.page.locator("#dom-widget div").first
                 widget.wait_for(timeout=5000, state='visible')
