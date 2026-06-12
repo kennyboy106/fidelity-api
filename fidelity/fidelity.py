@@ -832,6 +832,15 @@ class FidelityAutomation:
             # Force the search to use exactly what was entered
             self.page.get_by_label("Symbol", exact=True).press("Enter")
 
+            # Dismiss the symbol-suggestions overlay. The current UI keeps
+            # the autocomplete dropdown OPEN after Enter: it covers the
+            # controls below (action menu, extended-hours toggle, preview
+            # button) so later clicks time out waiting for actionability,
+            # and a force-clicked control behind it can land on a
+            # suggestion row and silently swap the committed symbol
+            # (observed 2026-06-12: SPY became SPYM that way).
+            self.page.keyboard.press("Escape")
+
             # Wait for quote panel to show up
             self.page.locator("#quote-panel").wait_for(timeout=5000)
             
@@ -948,7 +957,10 @@ class FidelityAutomation:
 
             # If error occurred
             try:
-                self.page.get_by_role("button", name="Place order", exact=False).wait_for(timeout=5000, state="visible")
+                # 20s, not 5s: during market hours the preview does live
+                # pricing/buying-power checks and regularly takes >5s to
+                # surface the Place order button (observed 2026-06-12).
+                self.page.get_by_role("button", name="Place order", exact=False).wait_for(timeout=20000, state="visible")
             except PlaywrightTimeoutError:
                 # Error must be present (or really slow page for some reason)
                 # Try to report on error
