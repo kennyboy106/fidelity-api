@@ -829,8 +829,31 @@ class FidelityAutomation:
             self.page.get_by_label("Symbol", exact=True).click()
             # Fill in the ticker
             self.page.get_by_label("Symbol", exact=True).fill(stock)
-            # Force the search to use exactly what was entered
-            self.page.get_by_label("Symbol", exact=True).press("Enter")
+            # Commit the symbol by clicking its EXACT row in the suggestions
+            # dropdown — that selects it AND closes the overlay. Enter alone
+            # leaves the dropdown open over the form controls (later clicks
+            # time out on actionability, and a force-clicked control behind
+            # it can land on a suggestion row and silently swap the symbol —
+            # SPY became SPYM that way on 2026-06-12). Escape does NOT
+            # dismiss this widget (verified same day).
+            committed = False
+            try:
+                exact_row = self.page.get_by_role("option").filter(
+                    has_text=re.compile(rf"^\s*{re.escape(stock.upper())}\b"))
+                if exact_row.count() > 0:
+                    exact_row.first.click(timeout=3000)
+                    committed = True
+            except Exception:
+                committed = False
+            if not committed:
+                # Fallback: commit with Enter, then click neutral page space
+                # (mid-page, below the ticket controls) to dismiss the
+                # overlay via outside-click.
+                self.page.get_by_label("Symbol", exact=True).press("Enter")
+                try:
+                    self.page.mouse.click(640, 330)
+                except Exception:
+                    pass
 
             # Wait for quote panel to show up
             self.page.locator("#quote-panel").wait_for(timeout=5000)
@@ -948,7 +971,10 @@ class FidelityAutomation:
 
             # If error occurred
             try:
-                self.page.get_by_role("button", name="Place order", exact=False).wait_for(timeout=5000, state="visible")
+                # 20s, not 5s: during market hours the preview does live
+                # pricing/buying-power checks and regularly takes >5s to
+                # surface the Place order button (observed 2026-06-12).
+                self.page.get_by_role("button", name="Place order", exact=False).wait_for(timeout=20000, state="visible")
             except PlaywrightTimeoutError:
                 # Error must be present (or really slow page for some reason)
                 # Try to report on error
